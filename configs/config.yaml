@@ -1,0 +1,383 @@
+# Configuration file for ai_loto
+# Last updated: 2026-08-11
+
+# ============================================
+# PROJECT CONFIGURATION
+# ============================================
+
+project:
+  name: ai_loto
+  version: 0.1.0
+  description: AI-powered Loto 6 prediction system
+  author: lotomania4545
+  
+# ============================================
+# LOTTERY CONFIGURATION
+# ============================================
+
+lottery:
+  type: "Loto 6"
+  country: "Japan"
+  
+  numbers:
+    min: 1
+    max: 43
+    count: 6  # How many numbers to predict
+    bonus_included: false  # Don't predict bonus number
+  
+  draw_schedule:
+    days: ["Monday", "Thursday"]
+    time: "19:30 JST"
+    frequency: "twice per week"
+  
+# ============================================
+# DATA CONFIGURATION
+# ============================================
+
+data:
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  features_dir: "data/features"
+  predictions_dir: "data/predictions"
+  results_dir: "data/results"
+  
+  files:
+    raw: "loto6_raw.csv"
+    processed: "loto6_processed.csv"
+    features: "loto6_features.csv"
+    predictions: "predictions.json"
+    results: "results.json"
+  
+  # Data source
+  sources:
+    - name: "Official Loto Site"
+      url: "https://www.takarakuji.or.jp/loto/loto6/"
+      update_frequency: "after each draw"
+    - name: "Historical Data API"
+      url: "(To be determined)"
+      method: "API or Web scraping"
+  
+  # Validation
+  validation:
+    check_duplicates: true
+    check_range: true
+    check_count: true
+    check_date: true
+    check_null: true
+  
+# ============================================
+# FEATURE ENGINEERING
+# ============================================
+
+features:
+  # Window sizes for rolling statistics
+  windows:
+    recent: 13      # Recent 13 draws (about 6-7 weeks)
+    medium: 52      # Medium term (about 6 months)
+    long: 260       # Long term (about 1 year)
+  
+  # Feature types to generate
+  include:
+    - frequency
+    - recent_frequency
+    - gap_statistics
+    - pair_frequency
+    - odd_even_analysis
+    - high_low_analysis
+    - sum_statistics
+    - consecutive_analysis
+    - trend_analysis
+    - rolling_statistics
+  
+  # Gap thresholds
+  gap:
+    max_lookback: 260  # How many draws back to look for gaps
+  
+  # Combination analysis
+  combinations:
+    pair_analysis: true
+    triple_analysis: false  # Can enable later
+  
+# ============================================
+# MODEL CONFIGURATION
+# ============================================
+
+models:
+  baseline:
+    name: "Random Baseline"
+    type: "random"
+    enabled: true
+    purpose: "Comparison baseline"
+  
+  frequency_model:
+    name: "Frequency Model"
+    type: "heuristic"
+    enabled: true
+    description: "Based on historical frequency"
+  
+  gap_model:
+    name: "Gap Model"
+    type: "heuristic"
+    enabled: true
+    description: "Based on gaps in appearances"
+  
+  combined_score:
+    name: "Combined Score Model"
+    type: "heuristic"
+    enabled: true
+    description: "Weighted combination of frequency, gap, and other factors"
+    weights:
+      frequency: 0.3
+      recent_frequency: 0.2
+      gap: 0.25
+      pair_relationship: 0.15
+      trend: 0.1
+  
+  ml_model1:
+    name: "ML Model 1"
+    type: "LogisticRegression"  # or RandomForest
+    enabled: true
+    hyperparameters:
+      # To be configured after initial testing
+      C: 1.0
+      max_iter: 1000
+  
+  ml_model2:
+    name: "ML Model 2"
+    type: "RandomForest"  # or XGBoost, LightGBM
+    enabled: true
+    hyperparameters:
+      n_estimators: 100
+      max_depth: 10
+      random_state: 42
+  
+  # Add more models as needed
+  ml_model3:
+    enabled: false
+    type: "XGBoost"
+  
+# ============================================
+# ENSEMBLE CONFIGURATION
+# ============================================
+
+ensemble:
+  method: "weighted_average"
+  
+  # Weight for each model (sum should be ~1.0)
+  model_weights:
+    random_baseline: 0.05      # Small weight as baseline
+    frequency_model: 0.15
+    gap_model: 0.15
+    combined_score: 0.20
+    ml_model1: 0.22
+    ml_model2: 0.23
+    # Additional weights can be added
+  
+  # Adaptive weights based on backtest performance
+  adaptive: true
+  update_frequency: "after_backtest"  # Update weights based on recent performance
+  
+  # Candidate generation
+  candidates:
+    count: 3  # Generate 3 candidate sets (Best, Alternative, Diverse)
+    
+    generation_method: "score_based"
+    # "score_based": Select numbers with highest ensemble scores
+    # "threshold": Select numbers above score threshold
+    # "stochastic": Random sampling weighted by scores
+    
+    # Constraints
+    constraints:
+      allow_consecutive: true
+      consecutive_limit: 3  # Max consecutive number pairs
+      
+      odd_even_ratio:
+        min_odd: 2
+        max_odd: 4
+        # Rest filled with even numbers
+      
+      high_low_ratio:
+        # 1-21 vs 22-43 split
+        min_low: 2
+        max_low: 4
+      
+      sum_range:
+        min: 80
+        max: 180
+      
+      diversity:
+        min_unique_across_candidates: 0.4  # At least 40% different numbers
+    
+    previous_overlap:
+      allow_duplicate_from_previous: true
+      max_duplicate: 3  # Max 3 numbers from previous draw
+
+# ============================================
+# BACKTESTING CONFIGURATION
+# ============================================
+
+backtest:
+  method: "walk_forward"  # Time series cross-validation
+  
+  # Walk forward parameters
+  initial_train_size: 100  # Start with 100 draws
+  test_period: 1          # Test on next 1 draw
+  step_size: 1            # Roll forward by 1 draw each iteration
+  
+  # Evaluation period
+  evaluation_period: "last_52_draws"  # Last year of data
+  
+  # Metrics to calculate
+  metrics:
+    average_hits: true
+    median_hits: true
+    max_hits: true
+    hit_3_or_more_rate: true
+    hit_4_or_more_rate: true
+    hit_5_or_more_rate: true
+    stability: true  # Standard deviation
+    vs_baseline: true  # Comparison with random
+
+# ============================================
+# PREDICTION OUTPUT
+# ============================================
+
+prediction:
+  output_format: "json"  # JSON format
+  output_dir: "data/predictions"
+  
+  include_in_output:
+    - draw_number
+    - draw_date
+    - prediction_generated_at
+    - model_version
+    - feature_version
+    - predictions  # Multiple candidate sets
+    - backtest_summary
+    - model_confidence
+  
+  number_of_candidates: 3  # Output 3 prediction sets
+  
+# ============================================
+# NOTIFICATION CONFIGURATION
+# ============================================
+
+notification:
+  enabled: true
+  
+  methods:
+    github_issues:
+      enabled: true
+      on_prediction: true
+      on_result: true
+    
+    github_discussions:
+      enabled: true
+      on_result: true
+    
+    email:
+      enabled: false  # Set to true if configured
+      on_prediction: false
+      on_result: false
+    
+    webhook:
+      enabled: false  # Set to true if configured
+      url: ""  # From GitHub Secrets
+  
+  github_secrets_keys:
+    github_token: "GITHUB_TOKEN"  # Available by default
+    email_address: "NOTIFICATION_EMAIL"  # Optional
+    webhook_url: "WEBHOOK_URL"  # Optional
+
+# ============================================
+# GITHUB ACTIONS CONFIGURATION
+# ============================================
+
+github_actions:
+  data_update:
+    schedule: "0 9 * * *"  # Every day at 9:00 JST
+  
+  train_predict:
+    trigger: "on_data_update"  # Triggered after data update if new data found
+  
+  result_fetch:
+    schedule: "0 10 * * 2,5"  # Tuesday and Friday at 10:00 JST (after Mon/Thu draws)
+  
+  retrain:
+    trigger: "on_result_available"  # Triggered after result fetched
+
+# ============================================
+# LOGGING CONFIGURATION
+# ============================================
+
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+  handlers:
+    console:
+      enabled: true
+      level: "INFO"
+    
+    file:
+      enabled: true
+      path: "logs/ai_loto.log"
+      level: "DEBUG"
+      max_size_mb: 10
+      backup_count: 5
+
+# ============================================
+# SECURITY CONFIGURATION
+# ============================================
+
+security:
+  validate_data_at_every_step: true
+  prevent_data_leakage: true  # Critical for time series
+  
+  # Use GitHub Secrets for:
+  # - Email credentials
+  # - API keys
+  # - Webhook URLs
+  # - Notification tokens
+  
+  # Never commit:
+  # - Credentials
+  # - API keys
+  # - Personal information
+  # - Database passwords
+
+# ============================================
+# VERSION MANAGEMENT
+# ============================================
+
+versioning:
+  track_model_version: true
+  track_feature_version: true
+  track_config_version: true
+  
+  # Each prediction should record:
+  # - model_version
+  # - feature_version  
+  # - config_version
+  # This ensures reproducibility and traceability
+
+# ============================================
+# PERFORMANCE TUNING
+# ============================================
+
+performance:
+  num_workers: 1  # For parallel processing if needed
+  use_gpu: false  # GPU support if available
+  cache_features: true  # Cache computed features
+  cache_models: true  # Cache trained models
+
+# ============================================
+# TESTING CONFIGURATION
+# ============================================
+
+testing:
+  run_tests: true
+  test_data_leakage: true  # Critical test
+  test_reproducibility: true
+  test_all_components: true
+  minimum_test_coverage: 0.80  # 80% code coverage target
